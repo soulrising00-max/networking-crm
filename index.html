@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1a73e8">
+  <title>Networking CRM</title>
+  <link rel="manifest" href="/networking-crm/manifest.json">
+  <link rel="stylesheet" href="/networking-crm/style.css">
+</head>
+<body>
+  <div id="app">
+    <div id="install-banner">
+      <span>Add to home screen for offline use</span>
+      <button id="install-btn">Install App</button>
+    </div>
+
+    <div id="header">
+      <h1>Networking CRM</h1>
+    </div>
+
+    <input id="search-box" type="text" placeholder="Search contacts..." autocomplete="off">
+
+    <div id="contact-list">
+      <div id="overdue-section">
+        <div class="section-title">Overdue / Due Today</div>
+        <div id="overdue-cards"></div>
+      </div>
+      <div id="upcoming-section">
+        <div class="section-title">Upcoming</div>
+        <div id="upcoming-cards"></div>
+      </div>
+      <div id="empty-state" style="display:none;"></div>
+    </div>
+
+    <button id="fab">+</button>
+
+    <div id="contact-modal" class="modal-overlay">
+      <div class="modal-box">
+        <h2 id="modal-title">Add Contact</h2>
+        <input id="input-name" type="text" placeholder="Name" maxlength="100">
+        <input id="input-interval" type="number" placeholder="Contact every (days)" min="1">
+        <input id="input-last" type="date">
+        <textarea id="input-notes" placeholder="Notes (optional)" maxlength="500"></textarea>
+        <div id="duplicate-warning" style="color:#f57c00;display:none;">
+          A contact with this name already exists.
+        </div>
+        <div class="card-actions">
+          <button id="save-btn">Save</button>
+          <button id="cancel-btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="delete-modal" class="modal-overlay">
+      <div class="modal-box">
+        <p id="delete-message"></p>
+        <div class="card-actions">
+          <button id="confirm-delete-btn">Delete</button>
+          <button id="cancel-delete-btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <button id="export-btn">Export JSON</button>
+      <button id="import-btn">Import JSON</button>
+      <input id="import-file" type="file" accept=".json" style="display:none">
+    </footer>
+  </div>
+
+  <script src="/networking-crm/db.js"></script>
+  <script src="/networking-crm/dates.js"></script>
+  <script src="/networking-crm/ui.js"></script>
+  <script src="/networking-crm/main.js"></script>
+</body>
+</html>

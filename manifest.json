@@ -1,0 +1,13 @@
+{
+  "name": "Networking CRM",
+  "short_name": "NetCRM",
+  "start_url": "/networking-crm/",
+  "scope": "/networking-crm/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1a73e8",
+  "icons": [
+    { "src": "/networking-crm/icon.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/networking-crm/icon.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
