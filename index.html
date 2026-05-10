@@ -10,6 +10,7 @@
 </head>
 <body>
   <div id="app">
+
     <div id="install-banner">
       <span>Add to home screen for offline use</span>
       <button id="install-btn">Install App</button>
@@ -19,8 +20,23 @@
       <h1>Networking CRM</h1>
     </div>
 
-    <input id="search-box" type="text" placeholder="Search contacts..." autocomplete="off">
+    <!-- Nav tabs -->
+    <div id="tab-bar">
+      <button id="tab-all" class="tab-btn active">All Contacts</button>
+      <button id="tab-reconnect" class="tab-btn">Reconnect Queue</button>
+    </div>
 
+    <!-- Search + tag filter -->
+    <input id="search-box" type="text" placeholder="Search contacts..." autocomplete="off">
+    <div id="tag-filter-bar">
+      <button class="tag-filter-btn" data-tag="meetup">meetup</button>
+      <button class="tag-filter-btn" data-tag="linkedin">linkedin</button>
+      <button class="tag-filter-btn" data-tag="github">github</button>
+      <button class="tag-filter-btn" data-tag="college">college</button>
+      <button class="tag-filter-btn" data-tag="ex-colleague">ex-colleague</button>
+    </div>
+
+    <!-- Main contact list -->
     <div id="contact-list">
       <div id="overdue-section">
         <div class="section-title">Overdue / Due Today</div>
@@ -33,14 +49,31 @@
       <div id="empty-state" style="display:none;"></div>
     </div>
 
+    <!-- Reconnect queue view -->
+    <div id="reconnect-view" style="display:none;"></div>
+
     <button id="fab">+</button>
 
+    <!-- Contact add/edit modal -->
     <div id="contact-modal" class="modal-overlay">
       <div class="modal-box">
         <h2 id="modal-title">Add Contact</h2>
-        <input id="input-name" type="text" placeholder="Name" maxlength="100">
-        <input id="input-interval" type="number" placeholder="Contact every (days)" min="1">
+        <input id="input-name" type="text" placeholder="Name *" maxlength="100">
+        <input id="input-interval" type="number" placeholder="Contact every (days) *" min="1">
         <input id="input-last" type="date">
+        <input id="input-role-company" type="text" placeholder="Role / Company" maxlength="200">
+        <input id="input-how-met" type="text" placeholder="How we met" maxlength="200">
+        <input id="input-last-topic" type="text" placeholder="Last topic discussed" maxlength="200">
+        <input id="input-next-action" type="text" placeholder="Next action (optional)" maxlength="300">
+        <input id="input-intent" type="text" placeholder="Why this person matters (optional)" maxlength="300">
+        <select id="input-tag">
+          <option value="">— Source tag —</option>
+          <option value="meetup">meetup</option>
+          <option value="linkedin">linkedin</option>
+          <option value="github">github</option>
+          <option value="college">college</option>
+          <option value="ex-colleague">ex-colleague</option>
+        </select>
         <textarea id="input-notes" placeholder="Notes (optional)" maxlength="500"></textarea>
         <div id="duplicate-warning" style="color:#f57c00;display:none;">
           A contact with this name already exists.
@@ -52,6 +85,7 @@
       </div>
     </div>
 
+    <!-- Delete confirmation modal -->
     <div id="delete-modal" class="modal-overlay">
       <div class="modal-box">
         <p id="delete-message"></p>
@@ -62,11 +96,45 @@
       </div>
     </div>
 
+    <!-- Interaction log modal -->
+    <div id="log-modal" class="modal-overlay">
+      <div class="modal-box modal-box-tall">
+        <h2 id="log-modal-title">Interaction Log</h2>
+        <div id="log-entries"></div>
+        <div id="log-add-form">
+          <input id="log-entry-date" type="date">
+          <select id="log-entry-type">
+            <option value="call">call</option>
+            <option value="message">message</option>
+            <option value="email">email</option>
+            <option value="coffee">coffee</option>
+            <option value="event">event</option>
+            <option value="other">other</option>
+          </select>
+          <input id="log-entry-note" type="text" placeholder="One-line note *" maxlength="200">
+          <button id="log-add-btn" class="btn-mark">Add Entry</button>
+        </div>
+        <button id="log-close-btn" class="btn-edit">Close</button>
+      </div>
+    </div>
+
+    <!-- Message snippets modal -->
+    <div id="snippets-modal" class="modal-overlay">
+      <div class="modal-box">
+        <h2 id="snippets-modal-title">Message Snippets</h2>
+        <div id="snippets-list"></div>
+        <button id="snippets-close-btn" class="btn-edit">Close</button>
+      </div>
+    </div>
+
+    <!-- Footer -->
     <footer>
-      <button id="export-btn">Export JSON</button>
+      <button id="export-json-btn">Export JSON</button>
+      <button id="export-csv-btn">Export CSV</button>
       <button id="import-btn">Import JSON</button>
       <input id="import-file" type="file" accept=".json" style="display:none">
     </footer>
+
   </div>
 
   <script src="/networking-crm/db.js"></script>

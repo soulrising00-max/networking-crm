@@ -1,5 +1,5 @@
-const VERSION = 'v1';
-const CACHE_NAME = 'networking-crm-v1';
+const VERSION = 'v2';
+const CACHE_NAME = 'networking-crm-v2';
 
 const ASSETS_TO_CACHE = [
   '/networking-crm/',

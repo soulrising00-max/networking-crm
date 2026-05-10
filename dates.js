@@ -26,3 +26,11 @@ function formatDelta(delta) {
   if (delta === 0) return 'Due today';
   return `Due in ${Math.abs(delta)} day(s)`;
 }
+
+// Returns days since last contact regardless of interval. 999 if never contacted.
+function computeSilenceDays(lastContacted) {
+  if (!lastContacted) return 999;
+  const last = parseDate(lastContacted);
+  const today = parseDate(todayStr());
+  return Math.floor((today - last) / 86400000);
+}

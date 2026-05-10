@@ -1,9 +1,11 @@
 let db = null;
 let allContacts = [];
 let currentSearchTerm = '';
+let currentTagFilter = '';
+let currentTab = 'all';
 
 document.addEventListener('DOMContentLoaded', () => {
-  // 1. Service worker registration
+  // Service worker
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/networking-crm/sw.js', { scope: '/networking-crm/' });
     navigator.serviceWorker.addEventListener('message', e => {
@@ -11,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 2. Install prompt
+  // Install prompt
   if (!window.matchMedia('(display-mode: standalone)').matches) {
     window.addEventListener('beforeinstallprompt', e => {
       e.preventDefault();
@@ -19,46 +21,107 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 3. Open DB
+  // Open DB
   openDB()
-    .then(instance => {
-      db = instance;
-      loadAndRender();
-    })
+    .then(instance => { db = instance; loadAndRender(); })
     .catch(() => showStorageError());
 
-  // 5. Search
+  // Search
   document.getElementById('search-box').addEventListener('input', e => {
     currentSearchTerm = e.target.value;
-    renderContacts(allContacts, currentSearchTerm);
+    renderContacts(allContacts, currentSearchTerm, currentTagFilter);
   });
 
-  // 6. FAB
+  // Tag filter bar
+  document.getElementById('tag-filter-bar').addEventListener('click', e => {
+    const btn = e.target.closest('[data-tag]');
+    if (!btn) return;
+    const tag = btn.dataset.tag;
+    currentTagFilter = tag === currentTagFilter ? '' : tag;
+    document.querySelectorAll('#tag-filter-bar [data-tag]').forEach(b => {
+      b.classList.toggle('active', b.dataset.tag === currentTagFilter);
+    });
+    renderContacts(allContacts, currentSearchTerm, currentTagFilter);
+  });
+
+  // Tab switching
+  document.getElementById('tab-all').addEventListener('click', () => {
+    currentTab = 'all';
+    setActiveTab('all');
+    renderContacts(allContacts, currentSearchTerm, currentTagFilter);
+  });
+  document.getElementById('tab-reconnect').addEventListener('click', () => {
+    currentTab = 'reconnect';
+    setActiveTab('reconnect');
+    renderReconnectView(allContacts);
+  });
+
+  // FAB
   document.getElementById('fab').addEventListener('click', () => showModal(null));
 
-  // 7. Card actions via delegation
-  document.getElementById('contact-list').addEventListener('click', e => {
+  // Card actions — delegation covers both #contact-list and #reconnect-view
+  document.getElementById('app').addEventListener('click', e => {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
     const id = Number(btn.dataset.id);
     const action = btn.dataset.action;
+    const contact = contactById(id);
+
     if (action === 'mark') {
-      const contact = contactById(id);
       if (contact) updateContact(db, { ...contact, lastContacted: todayStr() }).then(loadAndRender);
     } else if (action === 'edit') {
-      showModal(contactById(id));
+      showModal(contact);
     } else if (action === 'delete') {
-      const contact = contactById(id);
       if (contact) showDeleteConfirmation(id, contact.name, id => deleteContact(db, id).then(loadAndRender));
+    } else if (action === 'log') {
+      if (contact) {
+        getInteractionsByContact(db, id).then(interactions => {
+          showLogModal(
+            contact,
+            interactions,
+            // onAdd
+            entry => {
+              addInteraction(db, entry).then(() => {
+                // Update lastContacted if this entry date is more recent
+                const c = contactById(id);
+                if (!c.lastContacted || entry.date > c.lastContacted) {
+                  updateContact(db, { ...c, lastContacted: entry.date }).then(() => loadAndRender());
+                } else {
+                  loadAndRender();
+                }
+                getInteractionsByContact(db, id).then(updated => {
+                  renderLogEntries(updated, onDelete);
+                });
+              });
+            },
+            // onDelete
+            function onDelete(entryId) {
+              deleteInteraction(db, entryId).then(() => {
+                getInteractionsByContact(db, id).then(updated => {
+                  renderLogEntries(updated, onDelete);
+                });
+              });
+            }
+          );
+        });
+      }
+    } else if (action === 'snippets') {
+      if (contact) showSnippetsModal(contact.name);
     }
   });
 
-  // 8. Modal save
+  // Modal save
   document.getElementById('save-btn').addEventListener('click', () => {
     const name = document.getElementById('input-name').value.trim();
     const interval = parseInt(document.getElementById('input-interval').value, 10);
     const lastContactedRaw = document.getElementById('input-last').value;
+    const roleCompany = document.getElementById('input-role-company').value.trim();
+    const howMet = document.getElementById('input-how-met').value.trim();
+    const lastTopic = document.getElementById('input-last-topic').value.trim();
+    const nextAction = document.getElementById('input-next-action').value.trim();
+    const intent = document.getElementById('input-intent').value.trim();
     const notes = document.getElementById('input-notes').value.trim();
+    const tag = document.getElementById('input-tag').value;
     const modal = document.getElementById('contact-modal');
     const editIdStr = modal.dataset.editId;
     const editId = editIdStr ? Number(editIdStr) : null;
@@ -67,17 +130,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!interval || interval < 1) return;
     if (lastContactedRaw && !/^\d{4}-\d{2}-\d{2}$/.test(lastContactedRaw)) return;
     if (notes.length > 500) return;
+    if (nextAction.length > 300) return;
+    if (intent.length > 300) return;
 
     const lastContacted = lastContactedRaw || null;
 
-    // Duplicate check (warn but don't block)
     const dupWarning = document.getElementById('duplicate-warning');
     const isDup = allContacts.some(c =>
       c.name.toLowerCase() === name.toLowerCase() && c.id !== editId
     );
     dupWarning.style.display = isDup ? '' : 'none';
 
-    const contact = { name, interval, lastContacted, notes };
+    const contact = { name, interval, lastContacted, roleCompany, howMet, lastTopic, nextAction, intent, notes, tag };
 
     if (editId) {
       updateContact(db, { ...contact, id: editId }).then(() => { hideModal(); loadAndRender(); });
@@ -86,24 +150,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // 9. Modal cancel
   document.getElementById('cancel-btn').addEventListener('click', hideModal);
 
-  // 10. Export
-  document.getElementById('export-btn').addEventListener('click', () => {
+  // Log modal close
+  document.getElementById('log-close-btn').addEventListener('click', hideLogModal);
+
+  // Snippets modal close
+  document.getElementById('snippets-close-btn').addEventListener('click', hideSnippetsModal);
+
+  // JSON Export
+  document.getElementById('export-json-btn').addEventListener('click', () => {
     getAllContacts(db).then(contacts => {
       const data = { exportedAt: new Date().toISOString(), contacts };
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'networking-crm-export.json';
-      a.click();
-      URL.revokeObjectURL(url);
+      triggerDownload(JSON.stringify(data, null, 2), 'networking-crm-export.json', 'application/json');
     });
   });
 
-  // 11. Import
+  // CSV Export
+  document.getElementById('export-csv-btn').addEventListener('click', () => {
+    Promise.all([getAllContacts(db), getAllInteractions(db)]).then(([contacts, interactions]) => {
+      const csv = exportCSV(contacts, interactions);
+      triggerDownload(csv, 'networking-crm-export.csv', 'text/csv');
+    });
+  });
+
+  // Import
   document.getElementById('import-btn').addEventListener('click', () => {
     document.getElementById('import-file').click();
   });
@@ -129,15 +200,27 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-// 4. loadAndRender
 function loadAndRender() {
   getAllContacts(db).then(contacts => {
     allContacts = contacts;
-    renderContacts(allContacts, currentSearchTerm);
+    if (currentTab === 'all') {
+      renderContacts(allContacts, currentSearchTerm, currentTagFilter);
+    } else {
+      renderReconnectView(allContacts);
+    }
   });
 }
 
-// 12. validateImport
+function triggerDownload(content, filename, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function validateImport(data) {
   let arr = data && data.contacts ? data.contacts : data;
   if (!Array.isArray(arr)) return { valid: false, errors: ['Not a valid contacts array'] };
@@ -149,27 +232,31 @@ function validateImport(data) {
       e.push(`[${i}] name invalid`);
     if (!Number.isInteger(item.interval) || item.interval < 1)
       e.push(`[${i}] interval invalid`);
-    if (item.lastContacted !== null && item.lastContacted !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(item.lastContacted))
+    if (item.lastContacted != null && !/^\d{4}-\d{2}-\d{2}$/.test(item.lastContacted))
       e.push(`[${i}] lastContacted invalid`);
     if (item.notes && item.notes.length > 500)
       e.push(`[${i}] notes too long`);
     if (e.length) {
       errors.push(...e);
     } else {
-      const c = {
+      sanitized.push({
         name: item.name,
         interval: item.interval,
         lastContacted: item.lastContacted || null,
-        notes: item.notes || ''
-      };
-      sanitized.push(c);
+        notes: item.notes || '',
+        roleCompany: item.roleCompany || '',
+        howMet: item.howMet || '',
+        lastTopic: item.lastTopic || '',
+        nextAction: item.nextAction || '',
+        intent: item.intent || '',
+        tag: item.tag || ''
+      });
     }
   });
   if (errors.length) return { valid: false, errors };
   return { valid: true, contacts: sanitized };
 }
 
-// 13. contactById
 function contactById(id) {
   return allContacts.find(c => c.id === Number(id)) || null;
 }
